@@ -1,50 +1,50 @@
 import { blogPostFormSubmitType } from "../../constants";
 import type { BlogPost, BlogPostFormData } from "../../types/bitkrets";
+import {
+  createBlogPostForm,
+  editBlogPostForm,
+  createBlogPostList,
+  renderBlogPostList,
+  setupEditHandlers,
+  setupDeleteHandlers,
+  resetForm,
+} from "../utils/blogPostFunctions";
 
 function html() {
   return `
         <div id="blog-page">
             <h1>Dashboard</h1>
-            <div id="blog-posts" style="display:flex;gap:2em">
+            <div id="blog-posts" style="display:flex;flex-direction:column;gap:1em">
                 Loading blog posts...
             </div>
             <h3>Write new blog post:</h3>
-            <form method="post" id="blog-form" style="display:flex;flex-direction:column;">
+            <form method="post" id="blog-form" style="display:flex;flex-direction:column;gap:1em;max-width:400px;">
                 <input type="text" id="blog-id" value="" hidden>
                 <label for="blog-title">Blog Title</label>
                 <input type="text" name="blog-title" id="blog-title">
                 <label for="blog-text">Blog Text</label>
                 <textarea name="blog-text" id="blog-text" rows="4" cols="12"></textarea>
-                <button id="submit-button" data-submit-type="create">Create Post</button>
+                <button type="submit" id="submit-button" data-submit-type="create">Create Post</button>
             </form>
         </div>
     `;
 }
 
 async function logic() {
-  const response = await fetch("http://localhost:3000/posts");
-  const blogPosts: BlogPost[] = await response.json();
-  console.log(blogPosts);
+  // Load and display blog posts using utility functions
+  const blogPosts = await createBlogPostList();
   const blogPostsDiv = document.getElementById("blog-posts");
+
   if (blogPostsDiv) {
-    blogPostsDiv.innerHTML = blogPosts
-      .map(
-        (post) =>
-          `
-                <div class="post" style="border:1px dotted">
-                    <h5 data-title=${post._id}>${post.blogTitle}</h5>
-                    <p data-text=${post._id}>${post.blogText}</p>
-                    <button data-edit=${post._id}>Edit</button>
-                    <button data-delete=${post._id}>Delete</button>
-                </div>
-            `
-      )
-      .join("");
-  } else {
-    console.log("Could not find blogPostDiv");
+    if (blogPosts.length > 0) {
+      blogPostsDiv.innerHTML = renderBlogPostList(blogPosts);
+    } else {
+      blogPostsDiv.innerHTML =
+        "<p>No blog posts found. Create your first post!</p>";
+    }
   }
 
-  // blog form inputs
+  // Get form elements
   const blogForm = document.getElementById("blog-form") as HTMLFormElement;
   const blogId = document.getElementById("blog-id") as HTMLInputElement;
   const blogTitle = document.getElementById("blog-title") as HTMLInputElement;
@@ -53,103 +53,51 @@ async function logic() {
     "submit-button"
   ) as HTMLButtonElement;
 
-  // delete post
-  const deleteBtnList = document.querySelectorAll(
-    "[data-delete]"
-  ) as NodeListOf<HTMLButtonElement>;
-  if (deleteBtnList) {
-    deleteBtnList.forEach((deleteBtn) => {
-      deleteBtn.addEventListener("click", async (event) => {
-        event.preventDefault();
-        let postId = deleteBtn.dataset["delete"];
-        if (postId) {
-          try {
-            const fd: BlogPostFormData = {
-              blogId: postId,
-              blogTitle: "delete",
-              blogText: "delete",
-              submitType: blogPostFormSubmitType.delete,
-            };
-            console.log(fd);
-            const res = await fetch("http://localhost:3000/dashboard", {
-              method: "post",
-              headers: {
-                "content-type": "application/json",
-              },
-              body: JSON.stringify(fd),
-            });
-            console.log(await res.text());
-            window.location.reload();
-          } catch (error) {
-            console.log(error);
-          }
-        }
-      });
-    });
+  if (!blogForm || !blogId || !blogTitle || !blogText || !submitBtn) {
+    console.error("Could not find required form elements");
+    return;
   }
 
-  // edit post
-  // add eventListener to posts edit/delete
-  if (blogForm && blogId && blogTitle && blogText && submitBtn) {
-    const editBtnList = document.querySelectorAll(
-      "[data-edit]"
-    ) as NodeListOf<HTMLButtonElement>;
-    if (editBtnList) {
-      editBtnList.forEach((editBtn) => {
-        editBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          let postId = editBtn.dataset["edit"];
-          blogTitle.value =
-            document.querySelector(`[data-title="${postId}"]`)?.innerHTML ||
-            "Could not load the post";
-          blogText.value =
-            document.querySelector(`[data-text="${postId}"]`)?.innerHTML ||
-            "Could't load the post";
-          submitBtn.setAttribute("data-submit-type", "edit");
-          submitBtn.innerText = "Save Post";
-          blogId.value = postId || "Could not load the post";
-        });
-      });
-    } else {
-      console.log("Could not find etidBtnList");
-    }
-  }
+  // Setup event handlers using utility functions
+  setupEditHandlers(blogForm, blogId, blogTitle, blogText, submitBtn);
+  setupDeleteHandlers();
 
-  // save blog post
+  // Handle form submission
   blogForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+
     const submitType = submitBtn.getAttribute("data-submit-type");
-    if (
-      submitType === blogPostFormSubmitType.create ||
-      submitType === blogPostFormSubmitType.edit ||
-      submitType === blogPostFormSubmitType.delete
-    ) {
-      const formData: BlogPostFormData = {
-        blogId: blogId.value,
-        blogTitle: blogTitle.value,
-        blogText: blogText.value,
-        submitType: submitType,
-      };
-      console.log(formData);
-      try {
-        const response = await fetch("http://localhost:3000/dashboard", {
-          method: "post",
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(formData),
-        });
-        console.log(await response.text());
-        // remove value from form
-        blogTitle.value = "";
-        blogText.value = "";
-        // refresh page
-        window.location.reload();
-      } catch (error) {
-        console.log(error);
+
+    if (!submitType || !blogTitle.value.trim() || !blogText.value.trim()) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    const formData: BlogPostFormData = {
+      blogId: blogId.value,
+      blogTitle: blogTitle.value.trim(),
+      blogText: blogText.value.trim(),
+      submitType: submitType as any,
+    };
+
+    let success = false;
+
+    try {
+      if (submitType === blogPostFormSubmitType.create) {
+        success = await createBlogPostForm(formData);
+      } else if (submitType === blogPostFormSubmitType.edit) {
+        success = await editBlogPostForm(formData);
       }
-    } else {
-      console.log("Invalid submit type.");
+
+      if (success) {
+        resetForm(blogTitle, blogText, blogId, submitBtn);
+        window.location.reload(); // Refresh to show updated posts
+      } else {
+        alert(`Failed to ${submitType} post. Please try again.`);
+      }
+    } catch (error) {
+      console.error(`Error ${submitType}ing post:`, error);
+      alert(`Failed to ${submitType} post. Please try again.`);
     }
   });
 }
