@@ -6,7 +6,7 @@ import {
   getBlogPost,
   getBlogPosts,
 } from "./src/backend/controllers/dashboardController.js";
-import { connectToDatabase } from "./src/backend/db.js";
+import { DatabaseConnection } from "./src/backend/db.js";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -24,7 +24,8 @@ const __distPath = path.join(path.dirname(__dirname));
 const __distFrontendPath = path.join(__distPath, "frontend");
 
 async function main() {
-  await connectToDatabase(process.env.NODE_ENV === "test");
+  // Use memory server for development and test, real DB for production only
+  await DatabaseConnection.connect(process.env.NODE_ENV !== "production");
 
   const app = express();
   app.use(express.json());

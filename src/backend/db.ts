@@ -1,37 +1,62 @@
-import * as mongoDB from "mongodb";
+// https://typegoose.github.io/mongodb-memory-server/docs/guides/quick-start-guide
 import { MongoMemoryServer } from "mongodb-memory-server";
-import type { BlogPost, User } from "../types/bitkrets";
+import mongoose, { Schema, type InferSchemaType } from "mongoose";
+import { blogTitleLength } from "../constants";
 
-// not so useful info: https://www.mongodb.com/resources/products/compatibilities/using-typescript-with-mongodb-tutorial#adding-schema-validation-with-the-mongodb-nodejs-driver
+export const blogPostSchema = new Schema({
+  blogTitle: {
+    type: String,
+    required: true,
+    min: blogTitleLength.minLength,
+    max: blogTitleLength.maxLength,
+  },
+  blogText: { type: String, required: true },
+});
 
-export const collections: {
-  // https://www.mongodb.com/docs/drivers/node/current/typescript/#working-with-the-_id-field
-  blogPosts?: mongoDB.Collection<mongoDB.OptionalId<BlogPost>>;
-  users?: mongoDB.Collection<mongoDB.OptionalId<User>>;
-} = {};
+export type BlogPostType = InferSchemaType<typeof blogPostSchema>;
 
-export async function connectToDatabase(isTesting: boolean) {
-  // if test use mongo-memory-server
-  let connectionString;
-  if (isTesting) {
-    const mongod = await MongoMemoryServer.create({
-      instance: {
-        dbName: "bitkrets",
-      },
-    });
-    connectionString = mongod.getUri();
-  } else {
-    connectionString = "mongodb://localhost:27017"; // process.env.MONGODB_CONNECTION_STRING
+export class DatabaseConnection {
+  static testing: boolean;
+  static connectionString: string;
+  static memoryServer: MongoMemoryServer;
+  static connection: mongoose.Connection;
+  static posts: mongoose.Model<BlogPostType>;
+
+  static async connect(testing: boolean, connectionString?: string) {
+    this.testing = testing;
+    console.log(`Connecting to ${testing ? "test" : "prod"} db...`);
+
+    if (testing) {
+      const memoryServer = await MongoMemoryServer.create({
+        instance: {
+          dbName: "bitkrets",
+        },
+      });
+      this.memoryServer = memoryServer;
+      this.connectionString = memoryServer.getUri();
+    } else if (connectionString) {
+      this.connectionString = connectionString;
+    } else {
+      // Default connection for development
+      this.connectionString =
+        process.env.MONGODB_URI || "mongodb://localhost:27017/bitkrets";
+    }
+
+    this.connection = await mongoose
+      .createConnection(this.connectionString)
+      .asPromise();
+
+    this.posts = this.connection.model("Posts", blogPostSchema);
+
+    console.log(`Connected to ${testing ? "test" : "prod"} db!`);
   }
-  const client: mongoDB.MongoClient = new mongoDB.MongoClient(connectionString);
-  await client.connect();
-  const db: mongoDB.Db = client.db("bitkrets");
-  const blogCollection = db.collection<mongoDB.OptionalId<BlogPost>>("posts");
-  const userCollection = db.collection<mongoDB.OptionalId<User>>("users");
 
-  collections.blogPosts = blogCollection;
-  collections.users = userCollection;
-  console.log(
-    "succefully connected to database with mongoDB client and app collections..."
-  );
+  static async close() {
+    console.log("Closing database connection...");
+    if (this.testing) {
+      await this.memoryServer.stop();
+    }
+    await this.connection.close();
+    console.log(`Closed ${this.testing ? "test" : "prod"} db!`);
+  }
 }

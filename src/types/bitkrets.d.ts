@@ -1,4 +1,26 @@
 import { blogPostFormSubmitType } from "../constants";
+import type { Schema, InferSchemaType } from "mongoose";
+
+export type BlogPostFormSubmitType =
+  (typeof blogPostFormSubmitType)[keyof typeof blogPostFormSubmitType];
+
+export type CreateBlogPostFormData = {
+  blogTitle: string;
+  blogText: string;
+  submitType: blogPostFormSubmitType.create;
+};
+
+export type EditBlogPostFormData = {
+  blogId: string;
+  blogTitle: string;
+  blogText: string;
+  submitType: blogPostFormSubmitType.edit;
+};
+
+export type DeleteBlogPostFormData = {
+  blogId: string;
+  submitType: blogPostFormSubmitType.delete;
+};
 
 export type BlogPostFormData = {
   blogId: string;

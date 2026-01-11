@@ -1,80 +1,68 @@
 import type { Request, Response } from "express";
-import { collections } from "../db";
+import { DatabaseConnection } from "../db";
 import type { BlogPostFormData } from "../../types/bitkrets";
-import { validateBlogPostFormData } from "../../frontend/utils/validate";
-import { ObjectId } from "mongodb";
 import { blogPostFormSubmitType } from "../../constants";
+import {
+  createBlogPostService,
+  editBlogPostService,
+  deleteBlogPostService,
+} from "../services/dashboardService";
 
-export async function getBlogPost({
-  req,
-  res,
-}: {
-  req: Request;
-  res: Response;
-}) {
+export async function getBlogPost(req: Request, res: Response) {
   try {
-    const blogId = req.params.blogId;
-    return res.send(
-      await collections.blogPosts?.findOne({ _id: new ObjectId(blogId) })
-    );
+    const blogId = req.params.id;
+    const result = await DatabaseConnection.posts.findById(blogId);
+    return res.send(result);
   } catch (error) {
     console.log(error);
+    return res.status(404).send("Blog post not found");
   }
 }
 
-export async function getBlogPosts({
-  req,
-  res,
-}: {
-  req: Request;
-  res: Response;
-}) {
+export async function getBlogPosts(_req: Request, res: Response) {
   try {
-    const blogPosts = await collections.blogPosts?.find({}).toArray();
-    if (blogPosts) {
+    const blogPosts = await DatabaseConnection.posts.find({}).exec();
+    if (blogPosts && blogPosts.length > 0) {
       return res.status(200).send(blogPosts);
     } else {
       return res.status(204).send("There is not any blog posts to load");
     }
   } catch (error) {
-    return res.status(500).send();
+    console.log(error);
+    return res.status(500).send("Error retrieving blog posts");
   }
 }
 
 export async function dashboard(req: Request, res: Response) {
   const formData: BlogPostFormData = req.body;
-  if (!validateBlogPostFormData(formData)) {
-    return res.status(400).send("Invalid form data!");
-  }
+
   if (formData.submitType === blogPostFormSubmitType.create) {
     try {
-      await collections.blogPosts?.insertOne(formData);
+      await createBlogPostService(formData);
       console.log(`Created blogPost`);
       return res.send("created blog post");
     } catch (error) {
-      return res.send("Failed to create blog post");
+      console.log(error);
+      return res.status(400).send("Failed to create blog post");
     }
   } else if (formData.submitType === blogPostFormSubmitType.edit) {
     try {
-      const filter = { _id: new ObjectId(formData.blogId) };
-      const updateDoc = {
-        $set: {
-          blogTitle: formData.blogTitle,
-          blogText: formData.blogText,
-        },
-      };
-      await collections.blogPosts?.updateOne(filter, updateDoc);
+      await editBlogPostService(formData);
       console.log(`Updated blogPost: ${formData.blogId}`);
       return res.send("updated to db");
     } catch (error) {
-      return res.send("Failed to edit post");
+      console.log(error);
+      return res.status(400).send("Failed to edit post");
     }
   } else if (formData.submitType === blogPostFormSubmitType.delete) {
     try {
-      collections.blogPosts?.deleteOne({ _id: new ObjectId(formData.blogId) });
+      await deleteBlogPostService(formData);
       res.status(200).send("deleted blog post");
     } catch (error) {
-      return res.send("failed to delete blog post");
+      console.log(error);
+      return res.status(400).send("failed to delete blog post");
     }
+  } else {
+    return res.status(400).send("Invalid submit type");
   }
 }

@@ -4,13 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=development tsx server.ts",
+    "dev": "cross-env NODE_ENV=development tsx server.ts",
     "build": "vite build --ssr --mode backend && vite build --mode frontend",
-    "start": "NODE_ENV=production node dist/backend/server.js",
+    "start": "cross-env NODE_ENV=production node dist/backend/server.js",
     "preview": "vite preview",
     "test": "vitest --watch=false && npx playwright test",
     "test:unit": "vitest",
-    "playwrightServer": "NODE_ENV=test tsx server.ts"
+    "playwrightServer": "cross-env NODE_ENV=test tsx server.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
@@ -26,8 +26,10 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "mongodb": "^6.19.0"
+    "mongodb": "^6.21.0",
+    "mongoose": "^9.1.2"
   }
 }
