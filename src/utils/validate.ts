@@ -51,7 +51,6 @@ export function validateBlogTitleIsString(blogTitle: string) {
   return typeof blogTitle === "string";
 }
 
-// validate blogTitle min 15 max 50 characters
 export function validateBlogTitleLength(blogTitle: string) {
   return (
     blogTitle.length > blogTitleLength.minLength &&
@@ -107,33 +106,29 @@ export function validateCreateBlogPostFormData(
   return validBlogTitle && validBlogText && validSubmitType;
 }
 
-// validateEditBlogPostFormData
 export function validateEditBlogPostFormData(
   editBlogPostFormData: EditBlogPostFormData
 ) {
-  // validate blog id
   const validBlogId = validateBlogId(editBlogPostFormData.blogId);
-  // validate blog title
+
   const validBlogTitle = validateBlogTitle(editBlogPostFormData.blogTitle);
-  // validate blog text
+
   const validBlogText = validateBlogText(editBlogPostFormData.blogText);
-  // validate submit type
+
   const validSubmitType = validateSubmitType(
     editBlogPostFormData.submitType,
-    // we choose what type to validate with
+
     blogPostFormSubmitType.edit
   );
 
   return validBlogId && validBlogTitle && validBlogText && validSubmitType;
 }
 
-// validateDeleteBlogPostFormData
 export function validateDeleteBlogPostFormData(
   deleteBlogPostFormData: DeleteBlogPostFormData
 ) {
-  // validate blogId
   const validBlogId = validateBlogId(deleteBlogPostFormData.blogId);
-  // validate submit type
+
   const validSubmitType = validateSubmitType(
     deleteBlogPostFormData.submitType,
     blogPostFormSubmitType.delete
